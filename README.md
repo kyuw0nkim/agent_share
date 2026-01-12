@@ -1,6 +1,6 @@
 # agent_share
 
-## English
+## ENG
 
 ### Overview
 This repository contains two Python modules that handle argument generation and user state updates (reflections/user models) for a dialogue-based agent.
@@ -53,6 +53,7 @@ This repository contains two Python modules that handle argument generation and 
 - `update_user_model`: `Optional[str]` (user model text)
 - `batch_update_user_states`: `(long_mem: Dict[str, List[str]], user_models: Dict[str, str])`
 
+## KOR
 
 ### 1) `agent_peer_argument module.py`
 
