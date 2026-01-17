@@ -55,6 +55,7 @@ PROMPTS = {
     "response_generator_prompt": raw_prompt_modules.PEER_AGENT_PROMPTS[
         "peer_response_generator"
     ],
+    "hint_selector_prompt": raw_prompt_modules.PEER_AGENT_PROMPTS["hint_selector"],
 
     # Additional wrappers for structured inputs
     "coverage_judge_user_template": "### [CHAT HISTORY]\n{chat}\n\n### [TARGET VALUES TO CHECK]\n{mapping}",
@@ -64,33 +65,6 @@ PROMPTS = {
         "### [ARGUMENT OPTIONS]\n{arguments}\n\n"
         "### [LONG-TERM MEMORY]\n{memory}\n\n"
         "JSON으로만 출력"
-    ),
-    "response_generator_user_template": (
-        "### [ACTION DECISION]\n{decision}\n\n"
-        "### [SELECTED ARGUMENT]\n{argument}\n\n"
-        "### [CHAT HISTORY]\n{chat}\n\n"
-        "### [LONG-TERM MEMORY]\n{memory}\n\n"
-        "### [RESPONSE OUTPUT]\n"
-        "- 1~2문장 한국어"
-    ),
-    # (F) action manager
-    "action_manager_system": (
-        "너는 그룹 대화에 참여하는 peer 에이전트의 발화 여부를 판단하는 액션 매니저다.\n"
-        "기여 가치, 사회적 적절성, 타이밍을 고려해 지금 응답할지 판단하라.\n"
-        "반드시 JSON object로만 응답:\n"
-        '{ "decision": "Respond/Don\'t respond", "reason": "<짧은 이유>" }'
-    ),
-    "action_manager_user_template": (
-        "### [CHAT HISTORY]\n{chat}\n\n"
-        "### [ARGUMENT OPTIONS]\n{arguments}\n\n"
-        "### [LONG-TERM MEMORY]\n{memory}\n\n"
-        "JSON으로만 출력"
-    ),
-    # (G) response generator
-    "response_generator_system": (
-        "너는 그룹 대화에 참여하는 동료 역할의 응답 생성기다.\n"
-        "한국어로 1~2문장, 15~20단어로 자연스럽게 말하라.\n"
-        "하나의 생각만 말하고, 설명하거나 지시하지 마라."
     ),
     "response_generator_user_template": (
         "### [ACTION DECISION]\n{decision}\n\n"
@@ -171,6 +145,50 @@ def build_task_profile_components(
 def select_hint_group(arg_bank: List[Argument]) -> Optional[str]:
     unseen = [a for a in arg_bank if not a.mentioned]
     return unseen[0].group if unseen else None
+
+
+def should_update_hint(turn_index: int, update_interval: int) -> bool:
+    if update_interval <= 0:
+        return True
+    return turn_index % update_interval == 0
+
+
+def generate_hint_selection(
+    client,
+    chat_history: List[str],
+    current_hint: Optional[str],
+    candidates: List[str],
+    *,
+    prompts: Dict[str, str],
+    model_name: str,
+    turn_index: int,
+    update_interval: int = 1,
+) -> Optional[str]:
+    if not candidates:
+        return current_hint
+    if not should_update_hint(turn_index, update_interval):
+        return current_hint
+
+    payload = (
+        "### [CHAT HISTORY]\n"
+        f"{chr(10).join(chat_history)}\n\n"
+        "### [CURRENT HINT]\n"
+        f"{current_hint or '(none)'}\n\n"
+        "### [UNMENTIONED VALUE CANDIDATES]\n"
+        f"{', '.join(candidates)}\n"
+    )
+    response = client.chat.completions.create(
+        model=model_name,
+        messages=[
+            {"role": "system", "content": prompts["hint_selector_prompt"]},
+            {"role": "user", "content": payload},
+        ],
+        response_format={"type": "json_object"},
+    )
+    data = response.choices[0].message.content or "{}"
+    parsed = json.loads(data)
+    group = parsed.get("group") if isinstance(parsed, dict) else None
+    return group if isinstance(group, str) and group else current_hint
 
 
 def format_value_mapping(value_groups: List[str]) -> str:

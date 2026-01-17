@@ -51,7 +51,17 @@ def run_peer_pipeline(client: OpenAI, model_name: str):
     peer_module.update_argument_mentions_from_coverage(
         coverage_data, arg_bank, peer_module.VALUE_GROUPS_19
     )
-    hint_group = peer_module.select_hint_group(arg_bank)
+    candidates = [arg.group for arg in arg_bank if not arg.mentioned]
+    hint_group = peer_module.generate_hint_selection(
+        client,
+        chat_history=["User: 통금은 안전을 높일 수 있어요."],
+        current_hint=None,
+        candidates=candidates,
+        prompts=peer_module.PROMPTS,
+        model_name=model_name,
+        turn_index=1,
+        update_interval=1,
+    )
     sys_prompt = peer_module.build_system_prompt(
         peer_module.PERSONA,
         stance,

@@ -79,6 +79,16 @@ Universalism–tolerance: Acceptance and understanding of those who are differen
     "peer_ltm": """4. Long-Term Memory Generation
 Infer one high-level insight worth storing as long-term memory from the last five utterances in Korean. Do not summarize or evaluate. Focus on inferred value perspectives or tendencies.
 Output in the format: { "insight": "", "evidence": "" }.""",
+    "hint_selector": """Hint Selector
+You select the next value-group hint for a peer agent to bring up later.
+Prefer unmentioned candidates, but keep continuity with the current hint unless a switch is clearly better.
+Avoid changing perspectives too frequently.
+
+Output format (JSON only):
+{
+  "group": "<VALUE_GROUP>",
+  "rationale": "<short reason>"
+}""",
     "peer_action_manager": """5. Action Manager
 You are the Action Manager for a peer-like AI agent participating in a group chat conversation.  
 Your sole responsibility is to decide whether the agent should speak now or remain silent, so that its participation feels natural, human-like, and socially appropriate, while supporting value-oriented reflection when relevant.

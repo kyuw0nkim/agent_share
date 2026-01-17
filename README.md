@@ -13,7 +13,7 @@ Both modules load the canonical, non-templated prompt text from `raw_prompt_modu
 2. **Collect value-based arguments**: The same function requests value-based arguments in JSON and converts them into an `Argument` list.
 3. **Judge coverage**: Use the coverage prompt and parse the JSON output.
 4. **Mark mentioned groups**: `update_argument_mentions_from_coverage` flags covered groups in the argument bank.
-5. **Select a hint group**: `select_hint_group` picks the first unseen argument group as a hint.
+5. **Select a hint group**: `generate_hint_selection` picks a hint from unmentioned candidates (default cadence: every turn).
 6. **Build system prompt**: `build_system_prompt` composes a system message from persona, stance, reflections, and hint.
 7. **Prepare final prompt**: `prepare_prompt_with_hint` finalizes the hint group and returns the system prompt and logs.
 8. **Decide to respond**: `generate_action_decision` returns a JSON decision for whether to respond.
@@ -32,6 +32,7 @@ Both modules load the canonical, non-templated prompt text from `raw_prompt_modu
 #### Outputs
 - `build_task_profile_components`: `(stance: str, arg_bank: List[Argument], log: str)`
 - `select_hint_group`: `Optional[str]` (selected argument group)
+- `generate_hint_selection`: `Optional[str]` (LLM hint selection with update cadence)
 - `format_value_mapping`: `str` (index → group mapping for coverage prompts)
 - `update_argument_mentions_from_coverage`: `None` (mutates `Argument.mentioned`)
 - `build_system_prompt`: `str` (system message)
@@ -185,7 +186,7 @@ Both modules load the canonical, non-templated prompt text from `raw_prompt_modu
 2. **가치 기반 논거 수집**: 같은 함수에서 가치(value) 중심 논거를 JSON 형식으로 받아 `Argument` 목록으로 변환합니다.
 3. **커버리지 판정**: Coverage Judgement JSON을 파싱합니다.
 4. **언급 여부 반영**: `update_argument_mentions_from_coverage`로 논거의 `mentioned` 상태를 갱신합니다.
-5. **힌트 그룹 선택**: `select_hint_group`가 아직 언급되지 않은 논거 그룹을 찾아 힌트로 사용합니다.
+5. **힌트 그룹 선택**: `generate_hint_selection`으로 미언급 후보 중 하나를 선택합니다(기본: 매 턴 업데이트).
 6. **시스템 프롬프트 구성**: `build_system_prompt`가 persona, stance, 기억(반성), 힌트를 반영하여 시스템 메시지를 조립합니다.
 7. **최종 프롬프트 준비**: `prepare_prompt_with_hint`가 힌트 그룹을 확정하고 시스템 프롬프트 및 로그를 반환합니다.
 8. **발화 여부 판단**: `generate_action_decision`가 JSON 결정값을 반환합니다.
