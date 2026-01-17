@@ -1,3 +1,9 @@
+from dataclasses import dataclass
+import json
+from typing import Deque, Dict, List, Optional, Tuple
+
+import raw_prompt_modules
+
 PROMPTS = {
     "system_main": (
         "You are a neutral mediator between User 1 and User 2.\n"
@@ -17,16 +23,7 @@ PROMPTS = {
         "1~2문장, 한국어로 간결하게."
     ),
     "reflection_user_template": "### [USER]\n{user_label}\n\n### [CHAT HISTORY]\n{chat}\n\n### [REFLECTION OUTPUT]\n- 1~2문장 한국어 요약",
-    "support_ltm_system": (
-        "너는 지원 에이전트의 장기 메모리 인사이트를 추출하는 역할이다.\n"
-        "최근 발화에서 사용자별(user_1, user_2)과 전체(global) 인사이트를 각각 1개씩 추론하라.\n"
-        "반드시 JSON object로만 응답:\n"
-        "{\n"
-        '  "user_1": {"insight": "<한 문장>", "evidence": "<근거 발화>"},\n'
-        '  "user_2": {"insight": "<한 문장>", "evidence": "<근거 발화>"},\n'
-        '  "global": {"insight": "<한 문장>", "evidence": "<근거 발화>"}\n'
-        "}"
-    ),
+    "support_ltm_system": raw_prompt_modules.SUPPORTING_AGENT_PROMPTS["support_ltm"],
     "support_ltm_user_template": "### [RECENT CHAT]\n{chat}\n\n### [LTM OUTPUT]\nJSON으로만 출력",
     "user_model_system": (
         "너는 사용자 모델을 업데이트하는 역할을 한다.\n"
@@ -52,27 +49,9 @@ PROMPTS = {
         '  "user2": {{"reflection": "<string|null>", "model": "<string|null>"}}\n'
         "}}\n"
     ),
-    "action_manager_system": (
-        "너는 그룹 대화에서 중재 에이전트가 지금 응답해야 하는지 판단하는 액션 매니저다.\n"
-        "다음 기준을 우선적으로 고려하라:\n"
-        "- 갈등 완화/오해 해소가 필요하거나 감정이 격화되는 징후가 있는가?\n"
-        "- 사용자가 중재자에게 직접 질문하거나 호출하고 있는가?\n"
-        "- 대화가 교착 상태이거나 합의점을 찾기 위해 정리가 필요한가?\n"
-        "- 단순한 일상 대화/서로의 대화가 자연스럽게 이어지는 경우라면 침묵할 수 있는가?\n"
-        "지원 카테고리(고정): Constructive reasoning | Interactive reasoning | Uncertainty handling | Social expressions | n/a\n"
-        "지원 전략(고정):\n"
-        "- Constructive reasoning: Prompt consideration, Prompt connection, Request evidence\n"
-        "- Interactive reasoning: Request elaboration, Express confusion, Request agreement/disagreement\n"
-        "- Uncertainty handling: Encourage group discussion, Light agreement\n"
-        "- Social expressions: Acknowledge response, Express excitement\n"
-        "반드시 JSON object로만 응답:\n"
-        "{\n"
-        '  "decision": "Respond / Don\'t respond",\n'
-        '  "reason": "<짧은 이유>",\n'
-        '  "category": "<고정 카테고리 중 하나>",\n'
-        '  "strategy": "<고정 전략 중 하나 또는 n/a>"\n'
-        "}\n"
-    ),
+    "action_manager_system": raw_prompt_modules.SUPPORTING_AGENT_PROMPTS[
+        "support_action_manager"
+    ],
     "action_manager_user_template": "### [CHAT HISTORY]\n{chat}\n\n### [DECISION]\n",
 }
 
@@ -81,9 +60,6 @@ PROMPTS = {
 class ConversationEntry:
     speaker: str
     content: str
-
-import json
-from typing import Deque, Dict, List, Optional, Tuple
 
 
 def generate_reflection(

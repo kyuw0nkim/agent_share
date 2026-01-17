@@ -1,3 +1,9 @@
+import json
+from dataclasses import dataclass, field
+from typing import Dict, List, Optional, Tuple
+
+import raw_prompt_modules
+
 VALUE_GROUPS_19 = [
     "Self-direction–thought",
     "Self-direction–action",
@@ -40,85 +46,32 @@ PROMPTS = {
     "memory_block_template": "\n\n[Long-term memory / reflections]\n{reflections}\n",
     "hint_block_template": "\n\n(Hint: If it fits naturally, bring up '{group}' perspective.)",
 
-    # (A) stance 생성
-    "task_stance_system": (
-        "너는 토론 파트너 에이전트의 '입장(stance)'을 수립하는 전문가다.\n"
-        "주어진 과제/선택지를 바탕으로, 파트너가 일관되게 지지할 논리(핵심 주장, 근거축, 주의점)를\n"
-        "짧고 실행 가능하게 한국어 마크다운으로 작성하라."
-    ),
-    "task_stance_user_template": (
-        "### Persona\n- name: {name}\n- description: {description}\n\n"
-        "### Task\n{task}\n\n"
-        "### Partner Choice (stance to support)\n{choice}\n\n"
-        "요구사항:\n"
-        "- 한국어 불릿 3~5개\n"
-        "- 간결하고 단호한 톤\n"
-    ),
+    # Raw prompt blocks (non-templated)
+    "task_stance_prompt": raw_prompt_modules.PEER_AGENT_PROMPTS["stance_generation"],
+    "value_args_prompt": raw_prompt_modules.PEER_AGENT_PROMPTS["argument_generation"],
+    "coverage_judge_prompt": raw_prompt_modules.PEER_AGENT_PROMPTS["coverage_judgement"],
+    "reflection_prompt": raw_prompt_modules.PEER_AGENT_PROMPTS["peer_ltm"],
+    "action_manager_prompt": raw_prompt_modules.PEER_AGENT_PROMPTS["peer_action_manager"],
+    "response_generator_prompt": raw_prompt_modules.PEER_AGENT_PROMPTS[
+        "peer_response_generator"
+    ],
 
-    # (B) 19개 가치 기반 argument bank 생성 (JSON)
-    "value_args_system": (
-        "너는 Schwartz 19 values 기반으로 주장(Argument) 뱅크를 만드는 전문가다.\n"
-        "입장(stance)을 지지하는 방향으로, 각 가치 그룹 관점에서 사용할 수 있는 '짧은 주장 문장'을 생성하라.\n"
-        "반드시 JSON object로만 답하라.\n\n"
-        "출력 스키마:\n"
-        "{\n"
-        '  "items": [\n'
-        '    {"group": "<VALUE_GROUP>", "claim": "<one sentence claim in Korean>"},\n'
-        "    ...\n"
-        "  ]\n"
-        "}\n\n"
-        "규칙:\n"
-        f"- group은 반드시 다음 중 하나여야 한다: {VALUE_GROUPS_19}\n"
-        "- items는 19개(각 group 1개씩) 생성하라.\n"
-        "- claim은 한국어 1문장, 자연스러운 구어체로 작성.\n"
-        "- 기술적 전문 용어는 피하고, 실생활 이유/원인을 포함하라.\n"
-        "- 표현은 '~할 수 있습니다', '~할 가능성이 큽니다' 중 하나를 포함하라.\n"
-    ),
-    "value_args_user_with_stance_support": (
-        "### Task\n{task}\n\n"
-        "### Stance to Support\n{stance}\n\n"
-        "위 stance를 지지하는 방향으로, 19개 가치 그룹 각각에 대해 주장(claim) 1개씩 생성해줘."
-    ),
-
-    # (C) 가치 커버리지 판별
-    "coverage_judge_system": (
-        "너는 가치 지향점 분석 전문가다.\n"
-        "대화 기록을 보고, 아래 제공된 TARGET VALUES(인덱스/그룹명)가 '논의되었는지' 판별하라.\n"
-        "문장 일치가 아니라 '의도/정당화 논리/가치관'이 드러났는지를 본다.\n\n"
-        "반드시 JSON object로만 응답:\n"
-        "{\n"
-        '  "items": [\n'
-        '    {"index": 0, "mentioned": true, "rationale": "짧게"},\n'
-        "    ...\n"
-        "  ]\n"
-        "}\n"
-    ),
+    # Additional wrappers for structured inputs
     "coverage_judge_user_template": "### [CHAT HISTORY]\n{chat}\n\n### [TARGET VALUES TO CHECK]\n{mapping}",
-
-    # (D) reflection 생성
-    "reflection_system": (
-        "너는 최근 대화에서 저장할 장기 메모리 인사이트를 추출하는 역할이다.\n"
-        "요약이나 평가가 아니라, 가치 관점이나 성향에 대한 한 가지 인사이트를 추론하라.\n"
-        "반드시 JSON object로만 응답:\n"
-        '{ "insight": "<한 문장 한국어>", "evidence": "<근거가 되는 발화>" }'
-    ),
     "reflection_user_template": "### [CHAT HISTORY]\n{chat}\n\n### [REFLECTION OUTPUT]\nJSON으로만 출력",
-    # (E) hint 그룹 선택
-    "hint_selector_system": (
-        "너는 토론 파트너 에이전트의 다음 힌트 가치 관점을 선택하는 역할이다.\n"
-        "최근 대화 맥락과 미언급 가치 후보 목록을 보고, 다음 턴에 자연스럽게 꺼낼 가치를 하나 고르라.\n"
-        "미언급 후보를 우선하되, 최근 힌트와의 연속성을 고려하라.\n"
-        "너무 자주 관점을 바꾸지 않도록 주의하라."
-    ),
-    "hint_selector_user_template": (
+    "action_manager_user_template": (
         "### [CHAT HISTORY]\n{chat}\n\n"
-        "### [CURRENT HINT]\n{current_hint}\n\n"
-        "### [UNMENTIONED VALUE CANDIDATES]\n{candidates}\n\n"
-        "JSON으로만 응답:\n"
-        "{{\n"
-        '  "group": "<VALUE_GROUP>",\n'
-        '  "rationale": "<짧은 이유>"\n'
-        "}}\n"
+        "### [ARGUMENT OPTIONS]\n{arguments}\n\n"
+        "### [LONG-TERM MEMORY]\n{memory}\n\n"
+        "JSON으로만 출력"
+    ),
+    "response_generator_user_template": (
+        "### [ACTION DECISION]\n{decision}\n\n"
+        "### [SELECTED ARGUMENT]\n{argument}\n\n"
+        "### [CHAT HISTORY]\n{chat}\n\n"
+        "### [LONG-TERM MEMORY]\n{memory}\n\n"
+        "### [RESPONSE OUTPUT]\n"
+        "- 1~2문장 한국어"
     ),
     # (F) action manager
     "action_manager_system": (
@@ -149,10 +102,6 @@ PROMPTS = {
     ),
 }
 
-import json
-from dataclasses import dataclass, field
-from typing import Dict, List, Optional, Tuple
-
 
 @dataclass
 class Argument:
@@ -172,31 +121,25 @@ def build_task_profile_components(
     model_name: str,
     value_groups: List[str],
 ) -> Tuple[str, List[Argument], str]:
+    stance_prompt = (
+        prompts["task_stance_prompt"]
+        .replace("{{task}}", task_text)
+        .replace("{{choice}}", choice_text)
+    )
     s_res = client.chat.completions.create(
         model=model_name,
-        messages=[
-            {"role": "system", "content": prompts["task_stance_system"]},
-            {
-                "role": "user",
-                "content": prompts["task_stance_user_template"].format(
-                    task=task_text, choice=choice_text, **persona
-                ),
-            },
-        ],
+        messages=[{"role": "user", "content": stance_prompt}],
     )
     stance = s_res.choices[0].message.content
 
+    value_prompt = (
+        prompts["value_args_prompt"]
+        .replace("{{task}}", task_text)
+        .replace("{{stance}}", stance)
+    )
     a_res = client.chat.completions.create(
         model=model_name,
-        messages=[
-            {"role": "system", "content": prompts["value_args_system"]},
-            {
-                "role": "user",
-                "content": prompts["value_args_user_with_stance_support"].format(
-                    task=task_text, stance=stance
-                ),
-            },
-        ],
+        messages=[{"role": "user", "content": value_prompt}],
         response_format={"type": "json_object"},
     )
 
@@ -228,6 +171,33 @@ def build_task_profile_components(
 def select_hint_group(arg_bank: List[Argument]) -> Optional[str]:
     unseen = [a for a in arg_bank if not a.mentioned]
     return unseen[0].group if unseen else None
+
+
+def format_value_mapping(value_groups: List[str]) -> str:
+    return "\n".join(f"{idx}: {group}" for idx, group in enumerate(value_groups))
+
+
+def update_argument_mentions_from_coverage(
+    coverage: Dict[str, object],
+    arg_bank: List[Argument],
+    value_groups: List[str],
+) -> None:
+    items = coverage.get("items", []) if isinstance(coverage, dict) else []
+    if not isinstance(items, list):
+        return
+
+    index_to_group = {idx: group for idx, group in enumerate(value_groups)}
+    group_to_arg = {arg.group: arg for arg in arg_bank}
+    for item in items:
+        if not isinstance(item, dict):
+            continue
+        if not item.get("mentioned"):
+            continue
+        index = item.get("index")
+        if isinstance(index, int):
+            group = index_to_group.get(index)
+            if group and group in group_to_arg:
+                group_to_arg[group].mentioned = True
 
 
 def build_system_prompt(
@@ -301,7 +271,7 @@ def generate_action_decision(
     decision = client.chat.completions.create(
         model=model_name,
         messages=[
-            {"role": "system", "content": prompts["action_manager_system"]},
+            {"role": "system", "content": prompts["action_manager_prompt"]},
             {
                 "role": "user",
                 "content": prompts["action_manager_user_template"].format(
@@ -331,7 +301,7 @@ def generate_peer_response(
     response = client.chat.completions.create(
         model=model_name,
         messages=[
-            {"role": "system", "content": prompts["response_generator_system"]},
+            {"role": "system", "content": prompts["response_generator_prompt"]},
             {
                 "role": "user",
                 "content": prompts["response_generator_user_template"].format(

@@ -36,6 +36,7 @@ For EACH of the 19 groups, produce exactly **1 persuasive, context-specific argu
 16. Benevolence–caring: Devotion to the welfare of ingroup members
 17. Universalism–concern: Commitment to equality, justice, and protection for all people
 18. Universalism–nature: Preservation of the natural environment
+19. Universalism–tolerance: Acceptance and understanding of those who are different
 # LOGIC REQUIREMENT: Provide the "Reason/Cause"
 When generating an argument, explicitly explain the **cause** or **basis** behind that claim, thinking like an **ordinary, average person**.
 Ask "Why?": Inscribe the practical, common-sense reason *why* the action leads to the value directly into your claim.
@@ -70,6 +71,7 @@ Benevolence–dependability: Being a reliable and trustworthy member of the ingr
 Benevolence–caring: Devotion to the welfare of ingroup members
 Universalism–concern: Commitment to equality, justice, and protection for all people
 Universalism–nature: Preservation of the natural environment
+Universalism–tolerance: Acceptance and understanding of those who are different
 ## Judgment Rules
 1. Do **not** rely on literal word matching; instead, evaluate whether the **underlying intention and value orientation** expressed in the conversation aligns with the value definition.
 2. If **either the user or the conversational partner** articulates reasoning consistent with a value, mark it as `"mentioned": true`. If not, false.

@@ -1,5 +1,6 @@
 from collections import deque
 import importlib.util
+import json
 
 from openai import OpenAI
 
@@ -27,6 +28,29 @@ def run_peer_pipeline(client: OpenAI, model_name: str):
         model_name=model_name,
         value_groups=peer_module.VALUE_GROUPS_19,
     )
+    coverage = client.chat.completions.create(
+        model=model_name,
+        messages=[
+            {
+                "role": "system",
+                "content": peer_module.PROMPTS["coverage_judge_prompt"],
+            },
+            {
+                "role": "user",
+                "content": peer_module.PROMPTS["coverage_judge_user_template"].format(
+                    chat="User: 통금은 안전을 높일 수 있어요.",
+                    mapping=peer_module.format_value_mapping(
+                        peer_module.VALUE_GROUPS_19
+                    ),
+                ),
+            },
+        ],
+        response_format={"type": "json_object"},
+    )
+    coverage_data = json.loads(coverage.choices[0].message.content or "{}")
+    peer_module.update_argument_mentions_from_coverage(
+        coverage_data, arg_bank, peer_module.VALUE_GROUPS_19
+    )
     hint_group = peer_module.select_hint_group(arg_bank)
     sys_prompt = peer_module.build_system_prompt(
         peer_module.PERSONA,
@@ -34,21 +58,6 @@ def run_peer_pipeline(client: OpenAI, model_name: str):
         reflections=[],
         hint_group=hint_group,
         prompts=peer_module.PROMPTS,
-    )
-
-    coverage = client.chat.completions.create(
-        model=model_name,
-        messages=[
-            {"role": "system", "content": peer_module.PROMPTS["coverage_judge_system"]},
-            {
-                "role": "user",
-                "content": peer_module.PROMPTS["coverage_judge_user_template"].format(
-                    chat="User: 통금은 안전을 높일 수 있어요.",
-                    mapping=", ".join(peer_module.VALUE_GROUPS_19),
-                ),
-            },
-        ],
-        response_format={"type": "json_object"},
     )
 
     print("== Peer Pipeline ==")
