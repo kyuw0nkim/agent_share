@@ -35,11 +35,9 @@ PROMPTS = {
         "{system_main}\n"
         "{persona_line}\n"
         "{memory_block}"
-        "{group_summary_block}"
         "{hint_block}"
     ),
     "memory_block_template": "\n\n[Long-term memory / reflections]\n{reflections}\n",
-    "group_summary_block_template": "\n\n[Group summary]\n{summary}\n",
     "hint_block_template": "\n\n(Hint: If it fits naturally, bring up '{group}' perspective.)",
 
     # (A) stance 생성
@@ -53,9 +51,8 @@ PROMPTS = {
         "### Task\n{task}\n\n"
         "### Partner Choice (stance to support)\n{choice}\n\n"
         "요구사항:\n"
-        "- 6~10줄 내외\n"
-        "- 핵심 주장 2~3개 + 그에 대한 근거축(어떤 가치/논리로 설득할지)\n"
-        "- 말투/태도 가이드 2줄\n"
+        "- 한국어 불릿 3~5개\n"
+        "- 간결하고 단호한 톤\n"
     ),
 
     # (B) 19개 가치 기반 argument bank 생성 (JSON)
@@ -66,14 +63,16 @@ PROMPTS = {
         "출력 스키마:\n"
         "{\n"
         '  "items": [\n'
-        '    {"group": "<VALUE_GROUP>", "claim": "<1-2 sentence claim in Korean>"},\n'
+        '    {"group": "<VALUE_GROUP>", "claim": "<one sentence claim in Korean>"},\n'
         "    ...\n"
         "  ]\n"
         "}\n\n"
         "규칙:\n"
         f"- group은 반드시 다음 중 하나여야 한다: {VALUE_GROUPS_19}\n"
-        "- items는 가능하면 19개(각 group 1개씩) 생성하라.\n"
-        "- claim은 너무 길지 않게(1~2문장), 실제 대화에서 바로 쓸 수 있게.\n"
+        "- items는 19개(각 group 1개씩) 생성하라.\n"
+        "- claim은 한국어 1문장, 자연스러운 구어체로 작성.\n"
+        "- 기술적 전문 용어는 피하고, 실생활 이유/원인을 포함하라.\n"
+        "- 표현은 '~할 수 있습니다', '~할 가능성이 큽니다' 중 하나를 포함하라.\n"
     ),
     "value_args_user_with_stance_support": (
         "### Task\n{task}\n\n"
@@ -98,27 +97,17 @@ PROMPTS = {
 
     # (D) reflection 생성
     "reflection_system": (
-        "너는 대화의 핵심을 요약해 장기 메모리로 저장하는 역할을 한다.\n"
-        "대화의 핵심 주장, 중요한 근거, 사용자의 가치관을 간단히 정리하라.\n"
-        "1~2문장, 한국어로 간결하게."
+        "너는 최근 대화에서 저장할 장기 메모리 인사이트를 추출하는 역할이다.\n"
+        "요약이나 평가가 아니라, 가치 관점이나 성향에 대한 한 가지 인사이트를 추론하라.\n"
+        "반드시 JSON object로만 응답:\n"
+        '{ "insight": "<한 문장 한국어>", "evidence": "<근거가 되는 발화>" }'
     ),
-    "reflection_user_template": "### [CHAT HISTORY]\n{chat}\n\n### [REFLECTION OUTPUT]\n- 1~2문장 한국어 요약",
-    # (D-1) group summary 생성
-    "group_summary_system": (
-        "너는 그룹 대화의 누적 요약을 관리하는 전문가다.\n"
-        "이전 요약과 최근 대화 기록을 읽고, 핵심 쟁점/합의/대립을 3~5문장으로 갱신하라.\n"
-        "중립적인 톤으로 간결하게 작성하라."
-    ),
-    "group_summary_user_template": (
-        "### [PREVIOUS GROUP SUMMARY]\n{summary}\n\n"
-        "### [RECENT CHAT]\n{chat}\n\n"
-        "### [UPDATED GROUP SUMMARY]\n"
-        "- 3~5문장 한국어 요약"
-    ),
+    "reflection_user_template": "### [CHAT HISTORY]\n{chat}\n\n### [REFLECTION OUTPUT]\nJSON으로만 출력",
     # (E) hint 그룹 선택
     "hint_selector_system": (
         "너는 토론 파트너 에이전트의 다음 힌트 가치 관점을 선택하는 역할이다.\n"
         "최근 대화 맥락과 미언급 가치 후보 목록을 보고, 다음 턴에 자연스럽게 꺼낼 가치를 하나 고르라.\n"
+        "미언급 후보를 우선하되, 최근 힌트와의 연속성을 고려하라.\n"
         "너무 자주 관점을 바꾸지 않도록 주의하라."
     ),
     "hint_selector_user_template": (
@@ -130,6 +119,33 @@ PROMPTS = {
         '  "group": "<VALUE_GROUP>",\n'
         '  "rationale": "<짧은 이유>"\n'
         "}}\n"
+    ),
+    # (F) action manager
+    "action_manager_system": (
+        "너는 그룹 대화에 참여하는 peer 에이전트의 발화 여부를 판단하는 액션 매니저다.\n"
+        "기여 가치, 사회적 적절성, 타이밍을 고려해 지금 응답할지 판단하라.\n"
+        "반드시 JSON object로만 응답:\n"
+        '{ "decision": "Respond/Don\'t respond", "reason": "<짧은 이유>" }'
+    ),
+    "action_manager_user_template": (
+        "### [CHAT HISTORY]\n{chat}\n\n"
+        "### [ARGUMENT OPTIONS]\n{arguments}\n\n"
+        "### [LONG-TERM MEMORY]\n{memory}\n\n"
+        "JSON으로만 출력"
+    ),
+    # (G) response generator
+    "response_generator_system": (
+        "너는 그룹 대화에 참여하는 동료 역할의 응답 생성기다.\n"
+        "한국어로 1~2문장, 15~20단어로 자연스럽게 말하라.\n"
+        "하나의 생각만 말하고, 설명하거나 지시하지 마라."
+    ),
+    "response_generator_user_template": (
+        "### [ACTION DECISION]\n{decision}\n\n"
+        "### [SELECTED ARGUMENT]\n{argument}\n\n"
+        "### [CHAT HISTORY]\n{chat}\n\n"
+        "### [LONG-TERM MEMORY]\n{memory}\n\n"
+        "### [RESPONSE OUTPUT]\n"
+        "- 1~2문장 한국어"
     ),
 }
 
@@ -218,7 +234,6 @@ def build_system_prompt(
     persona: Dict[str, str],
     stance_md: str,
     reflections: List[str],
-    group_summary: str,
     hint_group: Optional[str],
     *,
     prompts: Dict[str, str],
@@ -228,9 +243,6 @@ def build_system_prompt(
         memory_block = prompts["memory_block_template"].format(
             reflections="\n".join(f"- {r}" for r in reflections)
         )
-    group_summary_block = ""
-    if group_summary:
-        group_summary_block = prompts["group_summary_block_template"].format(summary=group_summary)
     hint_block = ""
     if hint_group:
         hint_block = prompts["hint_block_template"].format(group=hint_group)
@@ -242,7 +254,6 @@ def build_system_prompt(
         system_main=prompts["system_main"],
         persona_line=persona_line,
         memory_block=memory_block,
-        group_summary_block=group_summary_block,
         hint_block=hint_block,
     )
 
@@ -260,12 +271,10 @@ def prepare_prompt_with_hint(
     if hint_group is None:
         hint_group = select_hint_group(arg_bank)
     reflections = long_mem.get("reflections", [])
-    group_summary = long_mem.get("group_summary", "")
     sys_content = build_system_prompt(
         persona,
         stance_md,
         reflections,
-        group_summary,
         hint_group,
         prompts=prompts,
     )
@@ -274,8 +283,64 @@ def prepare_prompt_with_hint(
         "[Prompt Snapshot]\n"
         f"- short_mem_turns: {len(short_mem)}\n"
         f"- long_mem_items: {len(reflections)}\n"
-        f"- group_summary_len: {len(group_summary)}\n"
         f"- hint_group: {hint_group or 'none'}\n"
         f"- system_len: {len(sys_content)}\n"
     )
     return sys_content, hint_group, prompt_log
+
+
+def generate_action_decision(
+    client,
+    chat_history: List[str],
+    argument_options: List[str],
+    long_mem: List[str],
+    *,
+    prompts: Dict[str, str],
+    model_name: str,
+) -> Dict[str, str]:
+    decision = client.chat.completions.create(
+        model=model_name,
+        messages=[
+            {"role": "system", "content": prompts["action_manager_system"]},
+            {
+                "role": "user",
+                "content": prompts["action_manager_user_template"].format(
+                    chat="\n".join(chat_history),
+                    arguments="\n".join(argument_options),
+                    memory="\n".join(long_mem) if long_mem else "(없음)",
+                ),
+            },
+        ],
+        response_format={"type": "json_object"},
+    )
+    data = decision.choices[0].message.content or "{}"
+    parsed = json.loads(data)
+    return parsed if isinstance(parsed, dict) else {}
+
+
+def generate_peer_response(
+    client,
+    action_decision: Dict[str, str],
+    selected_argument: str,
+    chat_history: List[str],
+    long_mem: List[str],
+    *,
+    prompts: Dict[str, str],
+    model_name: str,
+) -> str:
+    response = client.chat.completions.create(
+        model=model_name,
+        messages=[
+            {"role": "system", "content": prompts["response_generator_system"]},
+            {
+                "role": "user",
+                "content": prompts["response_generator_user_template"].format(
+                    decision=json.dumps(action_decision, ensure_ascii=False),
+                    argument=selected_argument,
+                    chat="\n".join(chat_history),
+                    memory="\n".join(long_mem) if long_mem else "(없음)",
+                ),
+            },
+        ],
+    )
+    return response.choices[0].message.content.strip()
