@@ -1,3 +1,9 @@
+from dataclasses import dataclass
+import json
+from typing import Deque, Dict, List, Optional, Tuple
+
+import raw_prompt_modules
+
 PROMPTS = {
     "system_main": (
         "You are a neutral mediator between User 1 and User 2.\n"
@@ -8,16 +14,17 @@ PROMPTS = {
         "Never speak as User 1 or User 2; respond only as the Mediator.\n"
         "Language: 기본은 한국어. 필요하면 자연스럽게 영어 용어/짧은 문장 섞어도 됨."
     ),
-    "system_message_template": "{system_main}\n\n{task_block}\n{group_summary_block}\n{user_models}\n",
+    "system_message_template": "{system_main}\n\n{task_block}\n{user_models}\n",
     "user_model_line_template": "- {user_label} model: {model}",
     "task_block_template": "[Task]\n{task}\n",
-    "group_summary_block_template": "[Group Summary]\n{summary}\n",
     "reflection_system": (
         "너는 사용자 발화의 핵심을 요약해 장기 메모리로 저장하는 역할을 한다.\n"
         "사용자의 핵심 주장, 선호, 우려를 간단히 정리하라.\n"
         "1~2문장, 한국어로 간결하게."
     ),
     "reflection_user_template": "### [USER]\n{user_label}\n\n### [CHAT HISTORY]\n{chat}\n\n### [REFLECTION OUTPUT]\n- 1~2문장 한국어 요약",
+    "support_ltm_system": raw_prompt_modules.SUPPORTING_AGENT_PROMPTS["support_ltm"],
+    "support_ltm_user_template": "### [RECENT CHAT]\n{chat}\n\n### [LTM OUTPUT]\nJSON으로만 출력",
     "user_model_system": (
         "너는 사용자 모델을 업데이트하는 역할을 한다.\n"
         "아래 요약들을 바탕으로 사용자의 성향/관심/우려를 간단히 정리하라.\n"
@@ -42,29 +49,10 @@ PROMPTS = {
         '  "user2": {{"reflection": "<string|null>", "model": "<string|null>"}}\n'
         "}}\n"
     ),
-    "action_manager_system": (
-        "너는 그룹 대화에서 중재 에이전트가 지금 응답해야 하는지 판단하는 액션 매니저다.\n"
-        "다음 기준을 우선적으로 고려하라:\n"
-        "- 갈등 완화/오해 해소가 필요하거나 감정이 격화되는 징후가 있는가?\n"
-        "- 사용자가 중재자에게 직접 질문하거나 호출하고 있는가?\n"
-        "- 대화가 교착 상태이거나 합의점을 찾기 위해 정리가 필요한가?\n"
-        "- 단순한 일상 대화/서로의 대화가 자연스럽게 이어지는 경우라면 침묵할 수 있는가?\n"
-        "출력은 반드시 아래 중 하나의 단어로만 답하라:\n"
-        "respond\n"
-        "skip"
-    ),
+    "action_manager_system": raw_prompt_modules.SUPPORTING_AGENT_PROMPTS[
+        "support_action_manager"
+    ],
     "action_manager_user_template": "### [CHAT HISTORY]\n{chat}\n\n### [DECISION]\n",
-    "group_summary_system": (
-        "너는 그룹 대화의 누적 요약을 관리하는 전문가다.\n"
-        "이전 요약과 최근 대화 기록을 읽고, 핵심 쟁점/합의/대립을 3~5문장으로 갱신하라.\n"
-        "중립적인 톤으로 간결하게 작성하라."
-    ),
-    "group_summary_user_template": (
-        "### [PREVIOUS GROUP SUMMARY]\n{summary}\n\n"
-        "### [RECENT CHAT]\n{chat}\n\n"
-        "### [UPDATED GROUP SUMMARY]\n"
-        "- 3~5문장 한국어 요약"
-    ),
 }
 
 
@@ -72,9 +60,6 @@ PROMPTS = {
 class ConversationEntry:
     speaker: str
     content: str
-
-import json
-from typing import Deque, Dict, List, Optional, Tuple
 
 
 def generate_reflection(
@@ -104,6 +89,33 @@ def generate_reflection(
         ],
     )
     return r.choices[0].message.content.strip()
+
+
+def generate_support_ltm(
+    client,
+    recent_chat: List[str],
+    *,
+    prompts: Dict[str, str],
+    model_name: str,
+) -> Optional[Dict[str, Dict[str, str]]]:
+    if not recent_chat:
+        return None
+
+    chat_text = "\n".join(recent_chat)
+    r = client.chat.completions.create(
+        model=model_name,
+        messages=[
+            {"role": "system", "content": prompts["support_ltm_system"]},
+            {
+                "role": "user",
+                "content": prompts["support_ltm_user_template"].format(chat=chat_text),
+            },
+        ],
+        response_format={"type": "json_object"},
+    )
+    data = r.choices[0].message.content or "{}"
+    parsed = json.loads(data)
+    return parsed if isinstance(parsed, dict) else None
 
 
 def update_user_model(
