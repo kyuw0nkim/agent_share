@@ -73,6 +73,33 @@ PROMPTS = {
         "### [RESPONSE OUTPUT]\n"
         "- 1~2문장 한국어"
     ),
+    # (F) action manager
+    "action_manager_system": (
+        "너는 그룹 대화에 참여하는 peer 에이전트의 발화 여부를 판단하는 액션 매니저다.\n"
+        "기여 가치, 사회적 적절성, 타이밍을 고려해 지금 응답할지 판단하라.\n"
+        "반드시 JSON object로만 응답:\n"
+        '{ "decision": "Respond/Don\'t respond", "reason": "<짧은 이유>" }'
+    ),
+    "action_manager_user_template": (
+        "### [CHAT HISTORY]\n{chat}\n\n"
+        "### [ARGUMENT OPTIONS]\n{arguments}\n\n"
+        "### [LONG-TERM MEMORY]\n{memory}\n\n"
+        "JSON으로만 출력"
+    ),
+    # (G) response generator
+    "response_generator_system": (
+        "너는 그룹 대화에 참여하는 동료 역할의 응답 생성기다.\n"
+        "한국어로 1~2문장, 15~20단어로 자연스럽게 말하라.\n"
+        "하나의 생각만 말하고, 설명하거나 지시하지 마라."
+    ),
+    "response_generator_user_template": (
+        "### [ACTION DECISION]\n{decision}\n\n"
+        "### [SELECTED ARGUMENT]\n{argument}\n\n"
+        "### [CHAT HISTORY]\n{chat}\n\n"
+        "### [LONG-TERM MEMORY]\n{memory}\n\n"
+        "### [RESPONSE OUTPUT]\n"
+        "- 1~2문장 한국어"
+    ),
 }
 
 
